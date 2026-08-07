@@ -1,0 +1,23 @@
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+
+# Databases (local data)
+*.db
+*.sqlite
+*.sqlite3
+
+# Data files with local paths
+data/
+*.yaml
+*.yml
+*.env
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local config overrides
+*.local.*
+.env.*
