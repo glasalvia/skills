@@ -1,0 +1,66 @@
+candidate:
+  name: Gonzalo La Salvia
+  current_title: Data Platform Sr Manager
+  seniority: lead
+  years_experience: 15
+  skills:
+    core:
+      - data engineering
+      - data platform
+      - cloud architecture
+      - apache spark
+      - python
+      - sql
+      - aws
+      - databricks
+      - snowflake
+      - apache airflow
+      - apache kafka
+      - terraform
+      - kubernetes
+    secondary:
+      - docker
+      - gitlab ci/cd
+      - dbt
+      - amazon redshift
+      - google bigquery
+      - delta lake
+      - lakehouse architecture
+      - data modeling
+      - etl
+  industries:
+    preferred:
+      - technology
+      - fintech
+      - data & analytics
+      - cloud services
+    acceptable:
+      - banking
+      - consulting
+      - e-commerce
+      - healthcare
+  locations:
+    primary: Remote, Argentina
+    secondary:
+      - Remote, LatAm
+      - Remote, US
+      - Buenos Aires, Argentina
+  salary_expectation:
+    min_usd: 7000
+    preferred_usd: 9000
+    currency: USD
+  companies_target:
+    - big tech (FAANG, FAANG-like)
+    - data-first companies
+    - well-funded startups (Series B+)
+  avoid_companies:
+    - low-value outsourcers
+    - bodyshops
+    - traditional non-tech industries
+  weights:
+    title_match: 0.25
+    seniority_match: 0.20
+    skills_match: 0.25
+    location_match: 0.10
+    company_relevance: 0.15
+    recruiter_outreach: 0.05
