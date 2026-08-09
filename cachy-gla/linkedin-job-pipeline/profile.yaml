@@ -43,11 +43,14 @@ candidate:
     primary: Remote, Argentina
     secondary:
       - Remote, LatAm
-      - Remote, US
-      - Buenos Aires, Argentina
+      - Remote, Spain
+      - Hybrid, Buenos Aires, Argentina
+      - Remote, Mexico
+      - Remote, Colombia
+      - Remote, Chile
   salary_expectation:
-    min_usd: 7000
-    preferred_usd: 9000
+    min_usd: 4000
+    max_usd: null
     currency: USD
   companies_target:
     - big tech (FAANG, FAANG-like)
@@ -57,10 +60,26 @@ candidate:
     - low-value outsourcers
     - bodyshops
     - traditional non-tech industries
+
+  # Palabras clave que indican que la oferta requiere inglés avanzado/bilingüe
+  exclude_keywords:
+    - bilingual
+    - bilingüe
+    - fluent english
+    - english required
+    - advanced english
+    - native english
+    - english proficiency
+    - business english
+    - english c1
+    - english c2
+    - portuguese required
+    - bilingual required
   weights:
     title_match: 0.25
     seniority_match: 0.20
     skills_match: 0.25
     location_match: 0.10
-    company_relevance: 0.15
+    company_relevance: 0.10
+    language_filter: 0.05
     recruiter_outreach: 0.05

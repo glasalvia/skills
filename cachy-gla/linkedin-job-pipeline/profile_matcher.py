@@ -36,6 +36,16 @@ def ensure_schema(conn):
     upgrade_schema(conn)
 
 
+def language_filter(title, description, profile):
+    """Penaliza ofertas que requieren inglés/bilingüe (5% del total). [0 o 100]"""
+    text = (title + " " + (description or "")).lower()
+    exclude = profile.get("exclude_keywords", [])
+    for kw in exclude:
+        if kw.lower() in text:
+            return 0
+    return 100
+
+
 def title_match(title, profile):
     """Score de cobertura de título laboral (25% del total). [0-100]"""
     t = title.lower().strip()
@@ -80,12 +90,12 @@ def seniority_match(title, description, profile):
     if re.search(r"\b(manager|sr\s*manager|senior\s*manager)\b", text):
         return 100
     if re.search(r"\b(senior|sr[.\s]|staff)\b", text):
-        return 70
-    if re.search(r"\b(mid|intermediate|ssr)\b", text):
         return 30
+    if re.search(r"\b(mid|intermediate|ssr)\b", text):
+        return 0
     if re.search(r"\b(junior|jr[.\s]|entry|trainee)\b", text):
         return 0
-    return 50
+    return 0
 
 
 def skills_match(title, description, profile):
@@ -127,17 +137,29 @@ def location_match(location, profile):
         if "argentina" in loc:
             return 100
         if "latam" in loc or "latin america" in loc:
-            return 80
+            return 90
+        if "spain" in loc or "españa" in loc:
+            return 85
         if "us" in loc or "united states" in loc:
-            return 60
+            return 30
         if "brazil" in loc or "brasil" in loc:
-            return 40
+            return 30
         return 70
+
+    if "hybrid" in loc or "híbrido" in loc:
+        if "buenos aires" in loc or "caba" in loc:
+            return 70
 
     if "buenos aires" in loc:
         return 50
+    if "mexico" in loc:
+        return 60
+    if "colombia" in loc:
+        return 60
+    if "chile" in loc:
+        return 60
 
-    return 30
+    return 10
 
 
 def company_relevance(company, profile):
@@ -192,13 +214,15 @@ def score_job(job, profile, conn):
         "seniority_match": 0.20,
         "skills_match": 0.25,
         "location_match": 0.10,
-        "company_relevance": 0.15,
+        "company_relevance": 0.10,
+        "language_filter": 0.05,
         "recruiter_outreach": 0.05,
     })
 
     t_score = title_match(job["title"], profile)
     s_score = seniority_match(job["title"], job.get("description", ""), profile)
     k_score = skills_match(job["title"], job.get("description", ""), profile)
+    lf_score = language_filter(job["title"], job.get("description", ""), profile)
     l_score = location_match(job.get("location", ""), profile)
     c_score = company_relevance(job.get("company", ""), profile)
     r_score = recruiter_outreach(job.get("job_url", ""), conn)
@@ -209,6 +233,7 @@ def score_job(job, profile, conn):
         + k_score * weights["skills_match"]
         + l_score * weights["location_match"]
         + c_score * weights["company_relevance"]
+        + lf_score * weights.get("language_filter", 0.05)
         + r_score * weights["recruiter_outreach"]
     )
 
@@ -227,6 +252,7 @@ def score_job(job, profile, conn):
         "skills_score": k_score,
         "location_score": l_score,
         "company_score": c_score,
+        "language_score": lf_score,
         "recruiter_score": r_score,
     })
 
@@ -239,6 +265,7 @@ def score_job(job, profile, conn):
         "skills_score": k_score,
         "location_score": l_score,
         "company_score": c_score,
+        "language_score": lf_score,
         "match_details": details,
     }
 
@@ -319,6 +346,7 @@ def show_url(url):
     print(f"  Location match:   {result['location_score']:>5} * 0.10 = {result['location_score']*0.10:>5.1f}")
     print(f"  Company match:    {result['company_score']:>5} * 0.15 = {result['company_score']*0.15:>5.1f}")
     print(f"  Recruiter match:  {result.get('recruiter_score', 0):>5} * 0.05 = {result.get('recruiter_score', 0)*0.05:>5.1f}")
+    print(f"  Language filter:  {result.get('language_score', 0):>5} * 0.05 = {result.get('language_score', 0)*0.05:>5.1f}")
     print(f"{'='*60}")
 
     conn.close()
