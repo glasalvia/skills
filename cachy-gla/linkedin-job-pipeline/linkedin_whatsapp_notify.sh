@@ -1,5 +1,4 @@
 #!/bin/bash
-# linkedin_whatsapp_notify.sh - Envia digest de ofertas LinkedIn por WhatsApp
 SKILL_DIR="$HOME/.openclaw/workspace/skills/linkedin-job-pipeline"
 DIGEST_FILE="/tmp/linkedin_digest_whatsapp.txt"
 
@@ -10,8 +9,5 @@ if [ -s "$DIGEST_FILE" ]; then
     /usr/local/bin/openclaw message send \
         --channel whatsapp \
         --target +5491164396711 \
-        -m "$(cat "$DIGEST_FILE")" 2>/dev/null
-    echo "$(date) Digest enviado OK" >> /tmp/linkedin_notify.log
-else
-    echo "$(date) Sin ofertas nuevas para notificar" >> /tmp/linkedin_notify.log
+        -m "$(cat "$DIGEST_FILE")" >/dev/null 2>&1
 fi
