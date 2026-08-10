@@ -21,7 +21,7 @@ def export_digest(top_n=5, min_score=70, hours=24):
         FROM job_scores js
         JOIN jobs j ON js.job_url = j.job_url
         WHERE js.score >= ?
-          AND j.created_at >= datetime('now', ?)
+          AND j.discovered_at >= datetime('now', ?)
         ORDER BY js.score DESC
         LIMIT ?
     """, (min_score, f'-{hours} hours', top_n)).fetchall()
