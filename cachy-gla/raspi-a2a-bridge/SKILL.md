@@ -33,6 +33,44 @@ cachy-gla ──A2A (HTTP/JSON-RPC)──► Raspi (RPi 5)
 - Peers configurados: cada gateway conoce al otro como peer
 - Archivo `~/.openclaw/a2a-peers.json` con alias para resolver URL + token
 
+### ⚠️ Regla de Tokens (Crítica)
+
+El archivo `~/.openclaw/a2a-peers.json` del **ORIGEN** debe contener el **token del DESTINO**, no el propio.
+
+**Explicación:** Cuando el gateway A del origen envía un mensaje al peer B, el mensaje incluye un token bearer. El gateway B valida ese token entrante contra su `security.inboundAuth.token`. Por lo tanto:
+
+- `a2a-peers.json` en cachy-gla → peer `raspberry-pi` → debe usar el token de Raspi
+- `a2a-peers.json` en Raspi → peer `cachy-gla` → debe usar el token de cachy-gla
+
+**Verificación empírica:** Si el origen envía su propio token, el destino responde con `-32603: Unauthorized: invalid or missing bearer token`.
+
+```json
+// a2a-peers.json en CACHY-GLA (origen)
+{
+    "raspberry-pi": {
+        "url": "http://192.168.1.65:18800",
+        "token": "<TOKEN_DE_RASPI>"  // ← token del DESTINO, no el propio
+    }
+}
+```
+
+### Instalación del Plugin A2A en un Nodo Remoto
+
+El plugin `a2a-gateway` vive en `workspace/plugins/a2a-gateway/`. Para instalarlo en un nodo remoto:
+
+```bash
+# Verificar que el plugin existe en el workspace del remoto
+openclaw plugins install -l /home/glasalvia/.openclaw/workspace/plugins/a2a-gateway
+# Reiniciar el gateway
+systemctl --user restart openclaw-gateway
+# Verificar que está escuchando
+ss -tlnp | grep 18800
+```
+
+**⚠️ Caveat:** `openclaw doctor --fix` elimina entradas de plugins no registradas en el índice SQLite. Después de ejecutar `doctor --fix`, reinstalar el plugin A2A con el comando arriba.
+
+El plugin es TypeScript (`index.ts`) sin compilado JS. `openclaw plugins install` lo acepta comocript (`index.ts`) sin compilado JS. `openclaw plugins install` lo acepta como "source checkout" (fallback TypeScript para paths de desarrollo local). No es necesario compilarlo."}, {"oldText": "### Envío de mensaje A2A (comando genérico)\n```bash\nnode <RUTA_PLUGIN>/skill/scripts/a2a-send.mjs \\\n  --peer <ALIAS_PEER> \\\n  --message \"<INSTRUCCIÓN>\" \\\n  --agent-id main \\\n  --wait --timeout-ms <TIMEOUT_MS>\n```\n\n- `<RUTA_PLUGIN>`: `/home/glasalvia/.openclaw/workspace/plugins/a2a-gateway`\n- `<ALIAS_PEER>`: alias definido en `~/.openclaw/a2a-peers.json`\n- `--wait`: espera respuesta del agente remoto (bloqueante)\n- `--timeout-ms`: 30000 para consultas simples, 120000 para tareas pesadas (scripts, Docker)", "newText": "### Envío de mensaje A2A (comando genérico)\n```bash\nnode <RUTA_PLUGIN>/skill/scripts/a2a-send.mjs \\\n  --peer <ALIAS_PEER> \\\n  --message \"<INSTRUCCIÓN>\" \\\n  --wait --timeout-ms <TIMEOUT_MS>\n```\n\n- `<RUTA_PLUGIN>`: `/home/glasalvia/.openclaw/workspace/plugins/a2a-gateway`\n- `<ALIAS_PEER>`: alias definido en `~/.openclaw/a2a-peers.json`. Resuelve URL + token automáticamente.\n- `--wait`: espera respuesta del agente remoto (bloqueante)\n- `--timeout-ms`: 30000 para consultas simples, 120000 para tareas pesadas (scripts, Docker)\n\n**Nota sobre `--agent-id`:** El script acepta `--agent-id main` pero el agente que recibe el mensaje lo determina `routing.defaultAgentId` en la configuración del plugin del nodo destino, no este flag. El flag solo es útil para enviar a agentes alternativos en el peer si el soporte multi-agente está configurado explícitamente. Por defecto, no incluirlo produce el mismo comportamiento."}, {"oldText": "Los vectores de operación usan `--agent-id main`. Este flag puede omitirse si `routing.defaultAgentId` en el plugin destino ya apunta a `main`.", "newText": ""}, {"oldText": "## Mantenimiento de la Conexión\n\n- Si un envío A2A falla, verificar:\n  1. Que ambos gateways estén corriendo (`openclaw gateway status`)\n  2. Que los puertos A2A (18800) estén abiertos (firewall UFW/nftables)\n  3. Que los tokens no hayan rotado\n  4. Que los peers estén configurados correctamente\n- Para verificar conectividad:\n```bash\nnode a2a-send.mjs --peer <ALIAS> --message \"ping\" --agent-id main --wait --timeout-ms 10000\n```\n- Los logs de auditoría A2A están en `~/.openclaw/a2a-audit.jsonl` en el gateway remoto\n- Las tareas completadas se almacenan en `~/.openclaw/a2a-tasks/<TASK_ID>.json`", "newText": "## Mantenimiento de la Conexión\n\n### Protocolo de Diagnóstico (ordenado por probabilidad)\n\nSi un envío A2A falla, seguir esta secuencia:\n\n1. **Verificar que el plugin A2A está escuchando en el peer:**\n   ```bash\n   curl -s -o /dev/null -w \"%{http_code}\" http://<PEER_IP>:18800/.well-known/agent-card.json\n   # 200 = OK, 000/refused = plugin caído\n   ```\n\n2. **Verificar que el plugin está instalado en el peer:**\n   ```bash\n   # En el peer remoto:\n   openclaw plugins list --enabled | grep a2a-gateway\n   ss -tlnp | grep 18800\n   ```\n   Si el plugin no aparece, reinstalar:\n   ```bash\n   openclaw plugins install -l /home/glasalvia/.openclaw/workspace/plugins/a2a-gateway\n   systemctl --user restart openclaw-gateway\n   ```\n\n3. **Verificar que ambos gateways estén corriendo:** `openclaw gateway status`\n\n4. **Verificar tokens:** Revisar que `a2a-peers.json` en el origen tenga el token del destino, no el propio.\n\n5. **Revisar logs de auditoría:** En el peer remoto:\n   ```bash\n   cat /home/glasalvia/.openclaw/a2a-audit.jsonl | grep -i \"rejected\\|error\\|unauthorized\"\n   ```\n\n6. **Revisar logs del gateway del peer:**\n   ```bash\n   grep -i \"a2a\\|unauthorized\\|token\" /tmp/openclaw/openclaw-$(date +%Y-%m-%d).log\n   ```\n\n7. **Si todo lo anterior falla, probar conectividad básica:**\n   ```bash\n   node a2a-send.mjs --peer <ALIAS> --message \"Ejecutá hostname\" --wait --timeout-ms 30000\n   ```\n\n### Archivos de diagnósticos\n- **Logs de auditoría A2A (remoto):** `~/.openclaw/a2a-audit.jsonl`\n- **Tareas completadas (remoto):** `~/.openclaw/a2a-tasks/<TASK_ID>.json`\n- **Logs del gateway (remoto):** `/tmp/openclaw/openclaw-$(date +%Y-%m-%d).log`\n- **Config del plugin (remoto):** `openclaw.json → plugins.entries.a2a-gateway`"}]
+
 ## Protocolo de Comunicación
 
 ### Envío de mensaje A2A (comando genérico)
@@ -40,14 +78,15 @@ cachy-gla ──A2A (HTTP/JSON-RPC)──► Raspi (RPi 5)
 node <RUTA_PLUGIN>/skill/scripts/a2a-send.mjs \
   --peer <ALIAS_PEER> \
   --message "<INSTRUCCIÓN>" \
-  --agent-id main \
   --wait --timeout-ms <TIMEOUT_MS>
 ```
 
 - `<RUTA_PLUGIN>`: `/home/glasalvia/.openclaw/workspace/plugins/a2a-gateway`
-- `<ALIAS_PEER>`: alias definido en `~/.openclaw/a2a-peers.json`
+- `<ALIAS_PEER>`: alias definido en `~/.openclaw/a2a-peers.json`. Resuelve URL + token automáticamente.
 - `--wait`: espera respuesta del agente remoto (bloqueante)
 - `--timeout-ms`: 30000 para consultas simples, 120000 para tareas pesadas (scripts, Docker)
+
+**Nota sobre `--agent-id`:** El script acepta `--agent-id <ID>` pero el agente que recibe el mensaje lo determina `routing.defaultAgentId` en la configuración del plugin del nodo destino, no este flag. El flag solo es útil para enviar a agentes alternativos si el soporte multi-agente está configurado explícitamente. Por defecto, omitirlo produce el mismo comportamiento.
 
 ### Lo que el agente remoto puede ejecutar
 El agente remoto, al recibir una instrucción A2A, opera en un `agentTurn` aislado con las siguientes herramientas disponibles:
@@ -155,14 +194,49 @@ node a2a-send.mjs --peer <ALIAS> \
 
 ## Mantenimiento de la Conexión
 
-- Si un envío A2A falla, verificar:
-  1. Que ambos gateways estén corriendo (`openclaw gateway status`)
-  2. Que los puertos A2A (18800) estén abiertos (firewall UFW/nftables)
-  3. Que los tokens no hayan rotado
-  4. Que los peers estén configurados correctamente
-- Para verificar conectividad:
-```bash
-node a2a-send.mjs --peer <ALIAS> --message "ping" --agent-id main --wait --timeout-ms 10000
-```
-- Los logs de auditoría A2A están en `~/.openclaw/a2a-audit.jsonl` en el gateway remoto
-- Las tareas completadas se almacenan en `~/.openclaw/a2a-tasks/<TASK_ID>.json`
+### Protocolo de Diagnóstico (ordenado por probabilidad de fallo)
+
+Si un envío A2A falla, seguir esta secuencia:
+
+1. **Verificar que el plugin A2A está escuchando en el peer:**
+   ```bash
+   curl -s -o /dev/null -w "%{http_code}" http://<PEER_IP>:18800/.well-known/agent-card.json
+   # 200 = OK, 000 = conexión rechazada (plugin caído)
+   ```
+
+2. **Verificar que el plugin está instalado en el peer:**
+   ```bash
+   # En el peer remoto:
+   openclaw plugins list --enabled | grep a2a-gateway
+   ss -tlnp | grep 18800
+   ```
+   Si el plugin no aparece, reinstalar:
+   ```bash
+   openclaw plugins install -l /home/glasalvia/.openclaw/workspace/plugins/a2a-gateway
+   systemctl --user restart openclaw-gateway
+   ```
+
+3. **Verificar que ambos gateways estén corriendo:** `openclaw gateway status`
+
+4. **Verificar tokens:** Revisar que `a2a-peers.json` en el origen tenga el token del destino, no el propio.
+
+5. **Revisar logs de auditoría del peer:**
+   ```bash
+   cat /home/glasalvia/.openclaw/a2a-audit.jsonl | grep -i "rejected\|error\|unauthorized"
+   ```
+
+6. **Revisar logs del gateway del peer:**
+   ```bash
+   grep -i "a2a\|unauthorized\|token" /tmp/openclaw/openclaw-$(date +%Y-%m-%d).log
+   ```
+
+7. **Probar conectividad básica:**
+   ```bash
+   node a2a-send.mjs --peer <ALIAS> --message "Ejecutá hostname" --wait --timeout-ms 30000
+   ```
+
+### Archivos de diagnóstico
+- **Logs de auditoría A2A (remoto):** `~/.openclaw/a2a-audit.jsonl`
+- **Tareas completadas (remoto):** `~/.openclaw/a2a-tasks/<TASK_ID>.json`
+- **Logs del gateway (remoto):** `/tmp/openclaw/openclaw-$(date +%Y-%m-%d).log`
+- **Config del plugin (remoto):** `openclaw.json → plugins.entries.a2a-gateway`
