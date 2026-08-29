@@ -25,7 +25,7 @@ from datetime import datetime, timezone, timedelta
 # ─── Configuración ────────────────────────────────────────────────────────────
 
 HA_URL = "http://192.168.1.65:8123"
-HA_TOKEN = "eyJhbG…lNHs"
+HA_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiIxMDE1ZGYzZThlMWY0NTY3YTUwNjA1ZjY3ZjhlNDcyMSIsImlhdCI6MTc3MTA1MDEzMiwiZXhwIjoyMDg2NDEwMTMyfQ.3XwElC9j4xXa1Rl7rpMTW3mNpeI3UCD-g4RT8xylNHs"
 SENSOR = "sensor.celu_gon_daily_steps"
 SPREADSHEET_ID = "1Pc_10GrPRC7FkfskIMBisIRps3uT72hLo5UzHDQ2Jfk"
 SHEET_NAME = "Actividad Fisica - Historial"
