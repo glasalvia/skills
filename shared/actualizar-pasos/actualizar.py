@@ -10,12 +10,11 @@ Uso:
 
 Pre-requisitos:
     - gog CLI autenticado con cuenta raspilasalvia@gmail.com
+    - GOG_KEYRING_PASSWORD y GOG_ACCOUNT configurados como env vars
     - Home Assistant accesible desde el nodo
-    - Token HA configurado en HA_TOKEN
 """
 
 import argparse
-import csv
 import json
 import os
 import subprocess
@@ -26,7 +25,7 @@ from datetime import datetime, timezone, timedelta
 # ─── Configuración ────────────────────────────────────────────────────────────
 
 HA_URL = "http://192.168.1.65:8123"
-HA_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiIxMDE1ZGYzZThlMWY0NTY3YTUwNjA1ZjY3ZjhlNDcyMSIsImlhdCI6MTc3MTA1MDEzMiwiZXhwIjoyMDg2NDEwMTMyfQ.3XwElC9j4xXa1Rl7rpMTW3mNpeI3UCD-g4RT8xylNHs"
+HA_TOKEN = "eyJhbG…lNHs"
 SENSOR = "sensor.celu_gon_daily_steps"
 SPREADSHEET_ID = "1Pc_10GrPRC7FkfskIMBisIRps3uT72hLo5UzHDQ2Jfk"
 SHEET_NAME = "Actividad Fisica - Historial"
@@ -86,11 +85,15 @@ def fecha_ya_existe(fecha):
 
 
 def append_a_planilla(fecha, pasos):
-    """Append [fecha, pasos] a la planilla."""
+    """
+    Append [fecha, pasos] a la planilla.
+    gog sheets append usa pipe (|) como separador de celdas.
+    """
+    valores = f"{fecha}|{pasos}"
     cmd = [
         "gog", "sheets", "append", SPREADSHEET_ID,
         RANGE,
-        f"{fecha},{pasos}",
+        valores,
         "--no-input",
     ]
     try:
@@ -116,8 +119,12 @@ def main():
 
     # 1. Consultar HA
     log("Consultando Home Assistant...")
-    pasos, last_updated_utc = consultar_ha()
-    log(f"HA responde: {pasos} pasos | last_updated: {last_updated_utc}")
+    try:
+        pasos, last_updated_utc = consultar_ha()
+        log(f"HA responde: {pasos} pasos | last_updated: {last_updated_utc}")
+    except Exception as e:
+        log(f"ERROR consultando HA: {e}")
+        return 1
 
     # 2. Determinar fecha ART
     if args.fecha:
@@ -127,7 +134,6 @@ def main():
         fecha = utc_to_art_date(last_updated_utc)
         log(f"Fecha ART calculada: {fecha}")
 
-    # 3. Validar
     if not fecha:
         log("ERROR: no se pudo determinar la fecha")
         return 1
@@ -136,12 +142,12 @@ def main():
         log(f"ERROR: valor de pasos inválido: {pasos}")
         return 1
 
-    # 4. Verificar duplicado
+    # 3. Verificar duplicado (usa columna A)
     if fecha_ya_existe(fecha):
         log(f"SKIP → La fecha {fecha} ya está registrada")
         return 0
 
-    # 5. Registrar
+    # 4. Registrar
     if args.dry_run:
         log(f"DRY-RUN → Se registraría: {fecha} | {pasos}")
         return 0
