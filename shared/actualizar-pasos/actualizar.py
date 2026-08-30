@@ -94,6 +94,7 @@ def append_a_planilla(fecha, pasos):
         "gog", "sheets", "append", SPREADSHEET_ID,
         RANGE,
         valores,
+        "--insert=INSERT_ROWS",
         "--no-input",
     ]
     try:
