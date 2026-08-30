@@ -61,6 +61,50 @@ def consultar_ha():
     return state, last_updated_utc
 
 
+def consultar_ha_historial(fecha_art):
+    """
+    Consulta el historial de HA para una fecha ART específica.
+    El sensor resetea a 0 a las 03:00 UTC (medianoche ART).
+    Devuelve el último valor registrado antes del reseteo del día siguiente.
+    """
+    # Periodo: medianoche ART de la fecha (03:00 UTC) hasta la medianoche ART del día siguiente
+    dt_fecha = datetime.strptime(fecha_art, "%Y-%m-%d").replace(tzinfo=TZ_ART)
+    dt_inicio = dt_fecha.replace(hour=0, minute=0, second=0, microsecond=0)
+    dt_fin = dt_inicio + timedelta(days=1)
+    
+    inicio_iso = dt_inicio.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+    fin_iso = dt_fin.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+    
+    url = f"{HA_URL}/api/history/period/{inicio_iso}?filter_entity_id={SENSOR}&end_time={fin_iso}"
+    req = urllib.request.Request(url, headers={
+        "Authorization": f"Bearer {HA_TOKEN}",
+        "Content-Type": "application/json",
+    })
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        data = json.loads(resp.read().decode())
+    
+    if not data or not data[0]:
+        raise ValueError(f"Sin datos históricos para {fecha_art}")
+    
+    # Filtrar estados válidos (>0) y tomar el último
+    estados = []
+    for entry in data[0]:
+        state_str = entry.get("state", "")
+        try:
+            val = int(float(state_str))
+        except (ValueError, TypeError):
+            continue
+        estados.append((entry.get("last_updated", ""), val))
+    
+    if not estados:
+        raise ValueError(f"Sin estados válidos en historial para {fecha_art}")
+    
+    # Tomar el último valor (antes del reseteo del día siguiente)
+    last_state = estados[-1][1]
+    log(f"Historial HA → último estado antes del reseteo: {last_state} (de {len(estados)} registros)")
+    return last_state
+
+
 def utc_to_art_date(iso_utc):
     """Convierte timestamp UTC a fecha ART (America/Buenos_Aires)."""
     dt = datetime.fromisoformat(iso_utc.replace("Z", "+00:00"))
@@ -124,20 +168,18 @@ def main():
     parser.add_argument("--fecha", type=str, default=None, help="Forzar fecha (YYYY-MM-DD)")
     args = parser.parse_args()
 
-    # 1. Consultar HA
-    log("Consultando Home Assistant...")
-    try:
+    # 1. Obtener valor de pasos y fecha ART
+    if args.fecha:
+        # Modo fecha histórica: consulta el historial de HA para esa fecha
+        fecha = args.fecha
+        log(f"Modo histórico: consultando HA para {fecha}...")
+        pasos = consultar_ha_historial(fecha)
+        log(f"Valor histórico: {pasos} pasos para {fecha}")
+    else:
+        # Modo normal: consulta el estado actual del sensor
+        log("Consultando Home Assistant...")
         pasos, last_updated_utc = consultar_ha()
         log(f"HA responde: {pasos} pasos | last_updated: {last_updated_utc}")
-    except Exception as e:
-        log(f"ERROR consultando HA: {e}")
-        return 1
-
-    # 2. Determinar fecha ART
-    if args.fecha:
-        fecha = args.fecha
-        log(f"Fecha forzada (--fecha): {fecha}")
-    else:
         fecha = utc_to_art_date(last_updated_utc)
         log(f"Fecha ART calculada: {fecha}")
 
