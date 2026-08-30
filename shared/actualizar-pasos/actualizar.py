@@ -72,8 +72,8 @@ def consultar_ha_historial(fecha_art):
     dt_inicio = dt_fecha.replace(hour=0, minute=0, second=0, microsecond=0)
     dt_fin = dt_inicio + timedelta(days=1)
     
-    inicio_iso = dt_inicio.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
-    fin_iso = dt_fin.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+    inicio_iso = dt_inicio.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    fin_iso = dt_fin.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     
     url = f"{HA_URL}/api/history/period/{inicio_iso}?filter_entity_id={SENSOR}&end_time={fin_iso}"
     req = urllib.request.Request(url, headers={
