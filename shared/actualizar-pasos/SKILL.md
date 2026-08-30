@@ -47,6 +47,10 @@ python3 actualizar.py --fecha 2026-08-29
 4. `gog sheets get` columna A → verifica si la fecha ya existe
 5. Si no existe: `gog sheets append` con `[fecha, pasos]`
 
+### Nota técnica
+
+El flag `--insert=INSERT_ROWS` es crítico: evita que `gog sheets append` sobrescriba filas existentes cuando la planilla tiene formato de **tabla estructurada** (Google Sheets convierte rangos a tabla automáticamente). Sin este flag, el append se comporta como OVERWRITE y puede eliminar registros previos.
+
 ## Logs
 
 Todos los intentos se registran en `/tmp/pasos_cron.log` con timestamp ART.
