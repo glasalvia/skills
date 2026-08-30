@@ -22,6 +22,10 @@ import sys
 import urllib.request
 from datetime import datetime, timezone, timedelta
 
+# GOG_KEYRING_PASSWORD requerida fuera del entorno OpenClaw
+os.environ.setdefault("GOG_KEYRING_PASSWORD", "Capicua1221")
+os.environ.setdefault("GOG_ACCOUNT", "raspilasalvia@gmail.com")
+
 # ─── Configuración ────────────────────────────────────────────────────────────
 
 HA_URL = "http://192.168.1.65:8123"
