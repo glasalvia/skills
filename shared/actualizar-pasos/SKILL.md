@@ -12,6 +12,7 @@ Registrar automáticamente los pasos acumulados del día antes del reseteo del s
 - `gog` CLI autenticado (cuenta: `raspilasalvia@gmail.com`)
 - Home Assistant reachable en `http://192.168.1.65:8123`
 - Token HA con acceso a `/api/states/`
+- Variables de entorno `GOG_KEYRING_PASSWORD` y `GOG_ACCOUNT` (el script las setea por defecto en `os.environ.setdefault()`; no requiere exportarlas manualmente)
 
 ## Archivos
 
