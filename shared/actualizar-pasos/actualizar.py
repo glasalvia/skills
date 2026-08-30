@@ -69,6 +69,7 @@ def fecha_ya_existe(fecha):
     cmd = [
         "gog", "sheets", "get", SPREADSHEET_ID,
         f"'{SHEET_NAME}'!A:A",
+        "--account=raspilasalvia@gmail.com",
         "--no-input", "--plain",
     ]
     try:
@@ -94,6 +95,7 @@ def append_a_planilla(fecha, pasos):
         "gog", "sheets", "append", SPREADSHEET_ID,
         RANGE,
         valores,
+        "--account=raspilasalvia@gmail.com",
         "--insert=INSERT_ROWS",
         "--no-input",
     ]
