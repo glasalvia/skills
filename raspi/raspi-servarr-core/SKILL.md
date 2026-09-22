@@ -42,7 +42,7 @@ RADARR_API_KEY="<key>"
 | `sonarr-status.sh` | `sonarr-status.sh` | Estado del sistema Sonarr |
 | `sonarr-series-list.sh` | `sonarr-series-list.sh [--filter continuing\|ended\|all]` | Lista series |
 | `sonarr-series-search.sh` | `sonarr-series-search.sh --term "<nombre>"` | Busca series por nombre |
-| `sonarr-series-add.sh` | `sonarr-series-add.sh --tvdb-id <id> [--root-folder] [--quality-profile] [--monitored] [--search]` | Agrega serie |
+| `sonarr-series-add.sh` | `sonarr-series-add.sh --tvdb-id <id> [--root-folder] [--quality-profile|--quality <name>] [--monitored] [--search]` | Agrega serie. `--quality` acepta: 720p, 1080p, any, sd |
 | `sonarr-series-delete.sh` | `sonarr-series-delete.sh --id <seriesId> [--delete-files true]` | Elimina serie |
 | `sonarr-episode-list.sh` | `sonarr-episode-list.sh --series-id <id> [--season <num>]` | Lista episodios |
 | `sonarr-episode-search.sh` | `sonarr-episode-search.sh --series-id <id>` | Busca episodios faltantes |
@@ -55,7 +55,7 @@ RADARR_API_KEY="<key>"
 | `radarr-status.sh` | `radarr-status.sh` | Estado del sistema Radarr |
 | `radarr-movie-list.sh` | `radarr-movie-list.sh [--filter downloaded\|missing\|available\|all]` | Lista películas |
 | `radarr-movie-search.sh` | `radarr-movie-search.sh --term "<nombre>"` | Busca películas |
-| `radarr-movie-add.sh` | `radarr-movie-add.sh --tmdb-id <id> [--root-folder] [--quality-profile] [--monitored] [--search]` | Agrega película |
+| `radarr-movie-add.sh` | `radarr-movie-add.sh --tmdb-id <id> [--root-folder] [--quality-profile|--quality <name>] [--monitored] [--search]` | Agrega película. `--quality` acepta: 720p, 1080p, 4K, any, sd |
 | `radarr-movie-delete.sh` | `radarr-movie-delete.sh --id <movieId> [--delete-files true]` | Elimina película |
 | `radarr-queue-list.sh` | `radarr-queue-list.sh` | Cola de descargas |
 

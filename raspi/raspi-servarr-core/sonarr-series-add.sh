@@ -14,7 +14,8 @@ USO:
 ARGUMENTOS:
   --tvdb-id         ID de TVDB (obligatorio)
   --root-folder     Ruta de destino (opcional, auto-detecta)
-  --quality-profile ID de perfil de calidad (opcional, auto-detecta)
+  --quality-profile ID numérico de perfil de calidad (opcional, auto-detecta)
+  --quality         Nombre del perfil: 720p, 1080p, any, sd (opcional, auto-detecta)
   --monitored       Monitorear episodios (opcional, default: true)
   --search          Buscar episodios faltantes (opcional, default: true)
 
@@ -24,6 +25,7 @@ SALIDA:
 EJEMPLOS:
   sonarr-series-add.sh --tvdb-id 376524
   sonarr-series-add.sh --tvdb-id 376524 --root-folder /media/series --quality-profile 4
+  sonarr-series-add.sh --tvdb-id 376524 --quality 720p
 EOF
     exit 0
 fi
@@ -32,6 +34,7 @@ fi
 TVDB_ID=""
 ROOT_FOLDER=""
 QUALITY_PROFILE=""
+QUALITY_NAME=""
 MONITORED="true"
 SEARCH="true"
 
@@ -40,6 +43,7 @@ while [[ $# -gt 0 ]]; do
         --tvdb-id) TVDB_ID="$2"; shift 2 ;;
         --root-folder) ROOT_FOLDER="$2"; shift 2 ;;
         --quality-profile) QUALITY_PROFILE="$2"; shift 2 ;;
+        --quality) QUALITY_NAME="$2"; shift 2 ;;
         --monitored) MONITORED="$2"; shift 2 ;;
         --search) SEARCH="$2"; shift 2 ;;
         *) echo "{\"error\":\"Argumento desconocido: $1\",\"code\":\"INVALID_ARG\"}" >&2; exit 3 ;;
@@ -59,10 +63,59 @@ try:
     folders = json.load(sys.stdin)
     if folders:
         print(folders[0].get('path', ''))
-except: pass
+except Exception: pass
 " 2>/dev/null || echo "")
     if [[ -z "$ROOT_FOLDER" ]]; then
         ROOT_FOLDER="/media/series"
+    fi
+fi
+
+# Resolver perfil de calidad
+# Si se especificó --quality (nombre), buscar por nombre en la API
+if [[ -n "$QUALITY_NAME" ]]; then
+    QUALITY_PROFILE=$("${SCRIPT_DIR}/call-api.sh" sonarr GET /api/v3/qualityprofile 2>/dev/null | python3 -c "
+import sys, json, re
+try:
+    profiles = json.load(sys.stdin)
+    term = '${QUALITY_NAME,,}'
+    alias_map = {
+        '4k': '2160p',
+        'uhd': '2160p',
+        'ultra': '2160p',
+        'hd': '720p',
+        'sd': '480p',
+        'fullhd': '1080p',
+        'full-hd': '1080p',
+        'remux': 'remux',
+    }
+    if term in alias_map:
+        term = alias_map[term]
+    for p in profiles:
+        if p['name'].lower() == term:
+            print(p['id'])
+            sys.exit(0)
+    for p in profiles:
+        if p['name'].lower() != 'any' and term in p['name'].lower():
+            print(p['id'])
+            sys.exit(0)
+    for p in profiles:
+        if p['name'].lower() == 'any':
+            continue
+        items = [i.get('quality',{}).get('name','').lower() for i in p.get('items',[]) if i.get('allowed')]
+        if any(term in qual for qual in items):
+            print(p['id'])
+            sys.exit(0)
+    for p in profiles:
+        if p['name'].lower() == 'any':
+            print(p['id'])
+            sys.exit(0)
+    print(profiles[0]['id'])
+except Exception:
+    print('ERROR')
+" 2>/dev/null || echo "")
+    if [[ -z "$QUALITY_PROFILE" || "$QUALITY_PROFILE" == "NOT_FOUND" || "$QUALITY_PROFILE" == "ERROR" ]]; then
+        echo "{\"error\":\"Perfil de calidad no encontrado: ${QUALITY_NAME}\",\"code\":\"QUALITY_NOT_FOUND\"}" >&2
+        exit 3
     fi
 fi
 
@@ -74,7 +127,7 @@ try:
     profiles = json.load(sys.stdin)
     if profiles:
         print(profiles[0].get('id', 1))
-except: pass
+except Exception: pass
 " 2>/dev/null || echo "1")
 fi
 
@@ -85,38 +138,8 @@ LOOKUP_RESULT=$("${SCRIPT_DIR}/call-api.sh" sonarr GET "/api/v3/series/lookup?te
 }
 
 # Extraer datos de la serie
-SERIES_JSON=$(echo "$LOOKUP_RESULT" | python3 -c "
-import sys, json
-try:
-    results = json.load(sys.stdin)
-    if not results:
-        print('{\"error\":\"Serie no encontrada con tvdbId: ${TVDB_ID}\",\"code\":\"NOT_FOUND\"}')
-        sys.exit(1)
-    s = results[0]
-    _mon = '${MONITORED}' == 'true'
-    _search = '${SEARCH}' == 'true'
-    # Construir payload para agregar
-    payload = {
-        'tvdbId': s.get('tvdbId', ${TVDB_ID}),
-        'title': s.get('title', ''),
-        'titleSlug': s.get('titleSlug', ''),
-        'images': s.get('images', []),
-        'seasons': s.get('seasons', []),
-        'year': s.get('year', 0),
-        'qualityProfileId': int(${QUALITY_PROFILE}),
-        'languageProfileId': 1,
-        'rootFolderPath': '${ROOT_FOLDER}',
-        'monitored': _mon,
-        'addOptions': {
-            'searchForMissingEpisodes': _search
-        }
-    }
-    print(json.dumps(payload))
-except Exception as e:
-    print(json.dumps({'error': str(e), 'code': 'PARSE_ERROR'}))
-    sys.exit(1)
-") || {
-    echo '{"error":"Error parseando resultado de búsqueda","code":"PARSE_ERROR"}' >&2
+SERIES_JSON=$(echo "$LOOKUP_RESULT" | python3 "${SCRIPT_DIR}/_helpers/build_payload.py" sonarr "${TVDB_ID}" "${QUALITY_PROFILE}" "${ROOT_FOLDER}" "${MONITORED}" "${SEARCH}") || {
+    echo '{"error":"Error construyendo payload de serie","code":"BUILD_ERROR"}' >&2
     exit 1
 }
 

@@ -14,7 +14,8 @@ USO:
 ARGUMENTOS:
   --tmdb-id         ID de TMDB (obligatorio)
   --root-folder     Ruta de destino (opcional, auto-detecta)
-  --quality-profile ID de perfil de calidad (opcional, auto-detecta)
+  --quality-profile ID numérico de perfil de calidad (opcional, auto-detecta)
+  --quality         Nombre del perfil: 720p, 1080p, 4K, any, sd (opcional, auto-detecta)
   --monitored       Monitorear (opcional, default: true)
   --search          Buscar para descarga (opcional, default: true)
 
@@ -24,6 +25,8 @@ SALIDA:
 EJEMPLOS:
   radarr-movie-add.sh --tmdb-id 603
   radarr-movie-add.sh --tmdb-id 603 --root-folder /media/movies --quality-profile 4
+  radarr-movie-add.sh --tmdb-id 603 --quality 720p
+  radarr-movie-add.sh --tmdb-id 603 --quality 4K
 EOF
     exit 0
 fi
@@ -31,6 +34,7 @@ fi
 TMDB_ID=""
 ROOT_FOLDER=""
 QUALITY_PROFILE=""
+QUALITY_NAME=""
 MONITORED="true"
 SEARCH="true"
 
@@ -39,6 +43,7 @@ while [[ $# -gt 0 ]]; do
         --tmdb-id) TMDB_ID="$2"; shift 2 ;;
         --root-folder) ROOT_FOLDER="$2"; shift 2 ;;
         --quality-profile) QUALITY_PROFILE="$2"; shift 2 ;;
+        --quality) QUALITY_NAME="$2"; shift 2 ;;
         --monitored) MONITORED="$2"; shift 2 ;;
         --search) SEARCH="$2"; shift 2 ;;
         *) echo "{\"error\":\"Argumento desconocido: $1\",\"code\":\"INVALID_ARG\"}" >&2; exit 3 ;;
@@ -58,14 +63,69 @@ try:
     folders = json.load(sys.stdin)
     if folders:
         print(folders[0].get('path', ''))
-except: pass
+except Exception: pass
 " 2>/dev/null || echo "")
     if [[ -z "$ROOT_FOLDER" ]]; then
         ROOT_FOLDER="/media/movies"
     fi
 fi
 
-# Auto-detect quality profile
+# Resolver perfil de calidad
+# Si se especificó --quality (nombre), buscar por nombre en la API
+if [[ -n "$QUALITY_NAME" ]]; then
+    QUALITY_PROFILE=$("${SCRIPT_DIR}/call-api.sh" radarr GET /api/v3/qualityprofile 2>/dev/null | python3 -c "
+import sys, json, re
+try:
+    profiles = json.load(sys.stdin)
+    term = '${QUALITY_NAME,,}'
+    # Mapa de alias: término común → nombre de perfil o calidad interna a buscar
+    alias_map = {
+        '4k': '2160p',
+        'uhd': '2160p',
+        'ultra': '2160p',
+        'hd': '720p',
+        'sd': '480p',
+        'fullhd': '1080p',
+        'full-hd': '1080p',
+        'remux': 'remux',
+    }
+    if term in alias_map:
+        term = alias_map[term]
+    # 1) Exact name match
+    for p in profiles:
+        if p['name'].lower() == term:
+            print(p['id'])
+            sys.exit(0)
+    # 2) Contains name match (exclude 'any')
+    for p in profiles:
+        if p['name'].lower() != 'any' and term in p['name'].lower():
+            print(p['id'])
+            sys.exit(0)
+    # 3) Quality internal match (exclude 'any')
+    for p in profiles:
+        if p['name'].lower() == 'any':
+            continue
+        items = [i.get('quality',{}).get('name','').lower() for i in p.get('items',[]) if i.get('allowed')]
+        if any(term in qual for qual in items):
+            print(p['id'])
+            sys.exit(0)
+    # 4) Fallback to 'any' profile
+    for p in profiles:
+        if p['name'].lower() == 'any':
+            print(p['id'])
+            sys.exit(0)
+    # 5) First profile
+    print(profiles[0]['id'])
+except Exception:
+    print('ERROR')
+" 2>/dev/null || echo "")
+    if [[ -z "$QUALITY_PROFILE" || "$QUALITY_PROFILE" == "NOT_FOUND" || "$QUALITY_PROFILE" == "ERROR" ]]; then
+        echo "{\"error\":\"Perfil de calidad no encontrado: ${QUALITY_NAME}\",\"code\":\"QUALITY_NOT_FOUND\"}" >&2
+        exit 3
+    fi
+fi
+
+# Auto-detect quality profile si no se especificó
 if [[ -z "$QUALITY_PROFILE" ]]; then
     QUALITY_PROFILE=$("${SCRIPT_DIR}/call-api.sh" radarr GET /api/v3/qualityprofile 2>/dev/null | python3 -c "
 import sys, json
@@ -73,7 +133,7 @@ try:
     profiles = json.load(sys.stdin)
     if profiles:
         print(profiles[0].get('id', 1))
-except: pass
+except Exception: pass
 " 2>/dev/null || echo "1")
 fi
 
@@ -84,36 +144,8 @@ LOOKUP_RESULT=$("${SCRIPT_DIR}/call-api.sh" radarr GET "/api/v3/movie/lookup?ter
 }
 
 # Construir payload
-MOVIE_JSON=$(echo "$LOOKUP_RESULT" | python3 -c "
-import sys, json
-try:
-    results = json.load(sys.stdin)
-    if not results:
-        print(json.dumps({'error': 'Película no encontrada con tmdbId: ${TMDB_ID}', 'code': 'NOT_FOUND'}))
-        sys.exit(1)
-    m = results[0]
-    _mon = '${MONITORED}' == 'true'
-    _search = '${SEARCH}' == 'true'
-    payload = {
-        'tmdbId': m.get('tmdbId', ${TMDB_ID}),
-        'title': m.get('title', ''),
-        'titleSlug': m.get('titleSlug', ''),
-        'images': m.get('images', []),
-        'year': m.get('year', 0),
-        'qualityProfileId': int(${QUALITY_PROFILE}),
-        'rootFolderPath': '${ROOT_FOLDER}',
-        'monitored': _mon,
-        'minimumAvailability': 'announced',
-        'addOptions': {
-            'searchForMovie': _search
-        }
-    }
-    print(json.dumps(payload))
-except Exception as e:
-    print(json.dumps({'error': str(e), 'code': 'PARSE_ERROR'}))
-    sys.exit(1)
-") || {
-    echo '{"error":"Error parseando resultado de búsqueda","code":"PARSE_ERROR"}' >&2
+MOVIE_JSON=$(echo "$LOOKUP_RESULT" | python3 "${SCRIPT_DIR}/_helpers/build_payload.py" radarr "${TMDB_ID}" "${QUALITY_PROFILE}" "${ROOT_FOLDER}" "${MONITORED}" "${SEARCH}") || {
+    echo '{"error":"Error construyendo payload de película","code":"BUILD_ERROR"}' >&2
     exit 1
 }
 
