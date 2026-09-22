@@ -1,0 +1,20 @@
+# raspi-servarr-core — Configuración de APIs
+# ============================================
+# Copiar a ~/.servarr-keys.conf y reemplazar valores
+# chmod 600 ~/.servarr-keys.conf
+#
+# Para pruebas locales contra Raspi remoto:
+#   SONARR_URL=http://192.168.1.65:8989
+#   RADARR_URL=http://192.168.1.65:7878
+#
+# Para producción en Raspi:
+#   SONARR_URL=http://localhost:8989
+#   RADARR_URL=http://localhost:7878
+
+# Sonarr
+SONARR_URL="http://localhost:8989"
+SONARR_API_KEY="<reemplazar>"
+
+# Radarr
+RADARR_URL="http://localhost:7878"
+RADARR_API_KEY="<reemplazar>"
