@@ -93,6 +93,8 @@ try:
         print('{\"error\":\"Serie no encontrada con tvdbId: ${TVDB_ID}\",\"code\":\"NOT_FOUND\"}')
         sys.exit(1)
     s = results[0]
+    _mon = '${MONITORED}' == 'true'
+    _search = '${SEARCH}' == 'true'
     # Construir payload para agregar
     payload = {
         'tvdbId': s.get('tvdbId', ${TVDB_ID}),
@@ -104,9 +106,9 @@ try:
         'qualityProfileId': int(${QUALITY_PROFILE}),
         'languageProfileId': 1,
         'rootFolderPath': '${ROOT_FOLDER}',
-        'monitored': ${MONITORED},
+        'monitored': _mon,
         'addOptions': {
-            'searchForMissingEpisodes': ${SEARCH}
+            'searchForMissingEpisodes': _search
         }
     }
     print(json.dumps(payload))

@@ -92,6 +92,8 @@ try:
         print(json.dumps({'error': 'Película no encontrada con tmdbId: ${TMDB_ID}', 'code': 'NOT_FOUND'}))
         sys.exit(1)
     m = results[0]
+    _mon = '${MONITORED}' == 'true'
+    _search = '${SEARCH}' == 'true'
     payload = {
         'tmdbId': m.get('tmdbId', ${TMDB_ID}),
         'title': m.get('title', ''),
@@ -100,10 +102,10 @@ try:
         'year': m.get('year', 0),
         'qualityProfileId': int(${QUALITY_PROFILE}),
         'rootFolderPath': '${ROOT_FOLDER}',
-        'monitored': ${MONITORED},
+        'monitored': _mon,
         'minimumAvailability': 'announced',
         'addOptions': {
-            'searchForMovie': ${SEARCH}
+            'searchForMovie': _search
         }
     }
     print(json.dumps(payload))
