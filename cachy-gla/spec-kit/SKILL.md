@@ -33,13 +33,27 @@ Este skill se activa CUANDO el usuario solicita:
 FASE 0: CONSTITUTION  →  governance.md
 FASE 1: SPECIFY       →  specs/specification.md
 FASE 2: PLAN          →  specs/plan.md
-FASE 3: TASKS         →  specs/tasks.md
-FASE 4: IMPLEMENT     →  código fuente
+FASE 3: TASKS         →  specs/tasks.md + Workboard cards
+FASE 4: IMPLEMENT     →  Local Dev via Workboard (batch secuencial)
 FASE 5: CONVERGE      →  diff contra spec
         ↓
   ←─── IMPLEMENT + CONVERGE ───→
   (repetir hasta CONVERGED)
 ```
+
+## Integración Workboard + Local Dev
+
+Este skill soporta un modo de ejecución distribuida:
+
+- **Yo (Arquitecto)**: Fases 0-3 (especificación, plan, descomposición) y Fase 5 (convergencia)
+- **Workboard**: Backlog de tareas con dependencias, tracking de estado, y proofs
+- **Local Dev**: Ejecutor de implementación (modelo local qwen3.6 pruned, 16 GB, tools habilitadas)
+
+**Opción B — Batch secuencial (recomendada):**
+1. Yo creo todas las tarjetas en Workboard con dependencias
+2. Spawneo Local Dev con la lista completa de tarjetas en orden
+3. Local Dev procesa secuencialmente: claim → implement → proof → complete → siguiente
+4. Yo verifico convergencia al final
 
 ### Ubicación de artefactos
 
@@ -231,7 +245,8 @@ Descomponer el plan en **tareas atómicas**, secuenciales y asignables. Cada tar
    - Ninguna tarea debe exceder ~300 líneas de código o 5 archivos — si excede, subdividir
 3. Generar `specs/tasks.md` usando la plantilla.
 4. El orden de ejecución se deriva de las dependencias (DAG implícito).
-5. Confirmar con el usuario antes de ejecutar.
+5. **Crear tarjetas en Workboard**: usar `workboard_create` por cada tarea, asignar `agentId: "local-dev"`, `boardId: "spec-kit"`, e incluir `parents` con los IDs de las tarjetas dependientes.
+6. Confirmar con el usuario antes de ejecutar.
 
 ### Template: tasks.md
 
@@ -261,38 +276,44 @@ Descomponer el plan en **tareas atómicas**, secuenciales y asignables. Cada tar
 
 ---
 
-## FASE 4 — Implement
+## FASE 4 — Implement (modo batch secuencial con Local Dev)
 
 ### Propósito
 
-Ejecutar las tareas en orden de dependencia, una por una, verificando cada una antes de pasar a la siguiente.
+Ejecutar las tareas en orden de dependencia delegando la implementación a Local Dev.
 
 ### Procedimiento
 
-1. Leer `specs/tasks.md`.
-2. Por cada tarea, en orden de dependencia (topológico):
-   a. Leer los archivos involucrados para entender el estado actual.
-   b. Ejecutar la implementación:
-      - Si la tarea es **simple** (baja complejidad, <50 líneas): implementar directamente con `edit`/`write`.
-      - Si la tarea es **compleja** (media/alta): delegar a subagente con `sessions_spawn(mode="run", model="<modelo>", cleanup="delete")` y pasar las instrucciones exactas.
-   c. **Verificar** con el comando indicado en la tarea.
-   d. Si la verificación falla:
-      - Corregir (máximo 2 intentos).
-      - Si falla 2 veces → marcar tarea como bloqueada, notificar al usuario.
-   e. Si pasa → registrar el resultado y avanzar a la siguiente.
-3. NO ejecutar tareas que dependen de una tarea fallida o bloqueada.
-4. Al completar todas las tareas → pasar a FASE 5 (Converge).
+1. Listar las tarjetas del Workboard con `workboard_list(boardId="spec-kit")`.
+2. Determinar el orden topológico: tarjetas sin dependencias primero, luego las que dependen de ellas.
+3. Crear el task prompt con la lista completa de IDs en orden, incluyendo para cada una:
+   - Título y descripción
+   - Archivos a crear/modificar
+   - Criterios de verificación
+4. Spawnear Local Dev:
+   ```python
+   sessions_spawn(
+       agentId="local-dev",
+       task="Procesá secuencialmente estas tarjetas de Workboard..."
+   )
+   ```
+   (no pasar `model` explícito — resuelve automáticamente del target)
+5. Local Dev ejecutará por cada tarjeta:
+   `workboard_claim` → `workboard_read` → implementar con `write`/`edit`/`exec` → `workboard_proof` → `workboard_complete`
+6. Al completar todas, verificar resultados con `workboard_list(boardId="spec-kit", status="done")`.
+7. Pasar a FASE 5 (Converge).
 
 ### Consideraciones de Ejecución
 
-- **Serial**: Las tareas se ejecutan en orden estrictamente secuencial (por dependencias del DAG).
-- **Sin paralelismo**: No hay concurrencia a menos que el usuario lo solicite explícitamente.
-- **Estado**: Cada tarea completada se registra como `[x]` en el `tasks.md` — usar `edit` para marcar.
-- **Proof**: Al completar una tarea, adjuntar evidencia de que la verificación pasó (output del comando).
+- **Serial**: Una sola invocación a Local Dev procesa toda la secuencia.
+- **Workspace**: Los archivos se escriben en el workspace configurado del agente.
+- **Proof**: `workboard_proof` debe incluir el output de verificación (syntax check, test execution).
+- **Sin fallback**: Si una tarea falla 2 veces, el batch se detiene y notifica al usuario.
+- **Modelo local**: Local Dev usa qwen3.6 pruned v2 (16 GB, tool calling nativo).
 
 ---
 
-## FASE 5 — Converge
+## FASE 5 — Converge (post-Local Dev)
 
 ### Propósito
 
