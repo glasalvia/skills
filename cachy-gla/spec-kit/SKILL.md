@@ -245,8 +245,21 @@ Descomponer el plan en **tareas atómicas**, secuenciales y asignables. Cada tar
    - Ninguna tarea debe exceder ~300 líneas de código o 5 archivos — si excede, subdividir
 3. Generar `specs/tasks.md` usando la plantilla.
 4. El orden de ejecución se deriva de las dependencias (DAG implícito).
-5. **Crear tarjetas en Workboard**: usar `workboard_create` por cada tarea, asignar `agentId: "local-dev"`, `boardId: "spec-kit"`, e incluir `parents` con los IDs de las tarjetas dependientes.
-6. Confirmar con el usuario antes de ejecutar.
+5. **Evaluar routing para cada tarea**: determinar qué agente ejecutará cada tarea según:
+   - `complexity: "baja"` → local-dev (modelo local, suficiente para tareas simples)
+   - `complexity: "media/alta"` → evaluar otros criterios:
+     - `language: "es"` → main (cloud, español nativo requerido)
+     - `design_quality: "profesional"` → main (diseño visual de alto nivel)
+     - `internal_logic: true` + `language: "en"` → local-dev (lógica interna, sin español)
+   - Por defecto: main (Arquitecto con DeepSeek V4 Flash) para garantizar calidad
+
+6. **Crear tarjetas en Workboard**: por cada tarea, usar `workboard_create` con:
+   - `agentId`: según el routing evaluado ("main" o "local-dev")
+   - `boardId`: "spec-kit"
+   - `parents`: IDs de tarjetas dependientes
+   - `notes`: incluir al inicio: *"Antes de implementar, leer specs/design-system.md y specs/coding-patterns.md para aplicar estándares."* + el contenido específico de la tarea
+
+7. Confirmar con el usuario antes de ejecutar.
 
 ### Template: tasks.md
 
@@ -276,40 +289,40 @@ Descomponer el plan en **tareas atómicas**, secuenciales y asignables. Cada tar
 
 ---
 
-## FASE 4 — Implement (modo batch secuencial con Local Dev)
+## FASE 4 — Implement (distribución por routing evaluado)
 
 ### Propósito
 
-Ejecutar las tareas en orden de dependencia delegando la implementación a Local Dev.
+Ejecutar las tareas en orden de dependencia, distribuyendo según el routing evaluado en FASE 3.
 
 ### Procedimiento
 
 1. Listar las tarjetas del Workboard con `workboard_list(boardId="spec-kit")`.
-2. Determinar el orden topológico: tarjetas sin dependencias primero, luego las que dependen de ellas.
-3. Crear el task prompt con la lista completa de IDs en orden, incluyendo para cada una:
-   - Título y descripción
-   - Archivos a crear/modificar
-   - Criterios de verificación
-4. Spawnear Local Dev:
-   ```python
-   sessions_spawn(
-       agentId="local-dev",
-       task="Procesá secuencialmente estas tarjetas de Workboard..."
-   )
-   ```
-   (no pasar `model` explícito — resuelve automáticamente del target)
-5. Local Dev ejecutará por cada tarjeta:
-   `workboard_claim` → `workboard_read` → implementar con `write`/`edit`/`exec` → `workboard_proof` → `workboard_complete`
-6. Al completar todas, verificar resultados con `workboard_list(boardId="spec-kit", status="done")`.
+2. Agrupar tarjetas por `agentId` (main vs local-dev).
+3. Para cada grupo, determinar el orden topológico:
+   - Tarjetas sin dependencias primero
+   - Luego las que dependen de ellas
+4. **Para tarjetas asignadas a `main` (Arquitecto):**
+   - Ejecutar cada tarjeta directamente: `workboard_claim` → `workboard_read` → implementar → `workboard_proof` → `workboard_complete`
+   - Implementar con herramientas nativas del agente y referencia explícita a la wiki de diseño/patrones
+   - Pasar a la siguiente tarjeta del grupo
+
+5. **Para tarjetas asignadas a `local-dev`:**
+   - Crear un task prompt con la lista de IDs del grupo en orden
+   - Incluir en el prompt: "Antes de implementar, leer specs/design-system.md y specs/coding-patterns.md"
+   - Spawnear: `sessions_spawn(agentId="local-dev", task="...")` (sin `model` explícito)
+   - Local Dev ejecutará: claim → read → implementar con write/edit/exec → proof → complete
+
+6. Al completar todos los grupos, verificar con `workboard_list(boardId="spec-kit", status="done")`.
 7. Pasar a FASE 5 (Converge).
 
 ### Consideraciones de Ejecución
 
-- **Serial**: Una sola invocación a Local Dev procesa toda la secuencia.
-- **Workspace**: Los archivos se escriben en el workspace configurado del agente.
-- **Proof**: `workboard_proof` debe incluir el output de verificación (syntax check, test execution).
-- **Sin fallback**: Si una tarea falla 2 veces, el batch se detiene y notifica al usuario.
-- **Modelo local**: Local Dev usa qwen3.6 pruned v2 (16 GB, tool calling nativo).
+- **Routing**: Las tarjetas asignadas a `main` se ejecutan directamente por el Arquitecto (DeepSeek V4 Flash). Las de `local-dev` se delegan en batch.
+- **Wiki**: Todo subagente debe recibir instrucciones de leer la wiki antes de implementar.
+- **Sin fallback**: Si una tarea falla 2 veces, se detiene y notifica al usuario.
+- **Workspace**: Archivos en workspace del agente correspondiente.
+- **Proof**: Incluir output de verificación (syntax check, test, lint).
 
 ---
 
