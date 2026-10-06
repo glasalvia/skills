@@ -27,10 +27,13 @@ def main():
 
     output = {'item_id': item_id}
 
-    # 1. Description
+    # 1. Description + snapshot image
     try:
         desc = api_get('https://api.mercadolibre.com/items/' + item_id + '/description', token)
         output['description'] = desc.get('plain_text', '')
+        snap = desc.get('snapshot', {})
+        if snap.get('url'):
+            output['snapshot_url'] = snap['url']
     except Exception as e:
         output['description_error'] = str(e)
 

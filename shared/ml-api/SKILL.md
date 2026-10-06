@@ -14,7 +14,7 @@ Recuperar datos estructurados de artículos de MercadoLibre desde la API oficial
 
 | Endpoint | Descripción |
 |---|---|
-| `GET /items/{id}/description` | Texto descriptivo del vendedor (plain_text) |
+| `GET /items/{id}/description` | Texto descriptivo del vendedor (plain_text) + **snapshot.url** (imagen JPG de la descripción) |
 | `GET /questions/search?item={id}&limit=N&offset=N` | Preguntas y respuestas (paginado) |
 | `GET /users/{seller_id}` | Información pública del vendedor (reputación, ubicación, transacciones) |
 

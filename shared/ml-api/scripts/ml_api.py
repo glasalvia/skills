@@ -60,6 +60,12 @@ def get_item_description(item_id, token):
     data = api_get('https://api.mercadolibre.com/items/' + item_id + '/description', token)
     return data.get('plain_text', '')
 
+def get_item_snapshot(item_id, token):
+    """Get item description snapshot image URL.
+    Returns dict with 'url', 'width', 'height', 'status' or empty dict."""
+    data = api_get('https://api.mercadolibre.com/items/' + item_id + '/description', token)
+    return data.get('snapshot', {})
+
 def get_item_questions(item_id, token, limit=3, offset=0):
     """Get item questions with answers.
     Returns dict with 'total', 'questions', 'limit', 'offset'."""
