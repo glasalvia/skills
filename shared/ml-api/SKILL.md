@@ -112,13 +112,10 @@ cd workspace && python3 scripts/ml_api.py <ITEM_ID> questions
 
 ### Desde Python
 ```python
-import os, sys
-sys.path.insert(0, 'scripts')
 from ml_api import read_credentials, get_token, api_get
 
 app_id, client_secret = ***)
 token = ***, client_secret)
-data = api_get('https://api.mercadolibre.com/items/' + item_id + '/description', token)
 ```
 
 ### Obtención del vendedor desde preguntas
