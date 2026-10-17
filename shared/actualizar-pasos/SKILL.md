@@ -1,3 +1,8 @@
+---
+name: actualizar-pasos
+description: Sincroniza el último valor diario del sensor de pasos de Home Assistant (sensor.celu_gon_daily_steps) hacia una planilla de Google Sheets, un registro por día (hora ART).
+---
+
 # Skill: actualizar-pasos
 
 Sincroniza el último valor diario del sensor `sensor.celu_gon_daily_steps` de Home Assistant hacia una planilla de Google Sheets, agrupando un registro por día (fecha ART).

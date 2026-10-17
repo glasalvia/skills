@@ -1,6 +1,6 @@
 # Skills Repository — OpenClaw Multi-Node Skill Sync
 
-Repositorio centralizado de skills para los agentes OpenClaw en cachy-gla y Raspberry Pi.
+Repositorio centralizado de skills para los agentes OpenClaw en fedora y Raspberry Pi.
 
 ## Estructura
 
@@ -13,7 +13,7 @@ skills/
 │   ├── facturas-ocr/     # Pipeline OCR de facturas
 │   ├── gog-workspace/    # Google Workspace CLI
 │   └── noticias-argentina/ # Monitoreo RSS de noticias
-├── cachy-gla/       # Skills exclusivos de cachy-gla
+├── fedora/       # Skills exclusivos de fedora
 │   ├── sdxl-image-generator/   # SDXL con RTX 5070
 │   ├── music-downloader/       # Descarga MP3 vía yt-dlp
 │   ├── linkedin-job-pipeline/  # Scraping LinkedIn
@@ -34,8 +34,8 @@ deploy.sh           # Script de deploy multi-hostname
 ```bash
 # 1. Clonar o rsync el repo
 git clone <url> ~/skills
-# o via rsync desde cachy-gla:
-rsync -avz --delete cachy-gla:skills/ ~/skills/
+# o via rsync desde fedora:
+rsync -avz --delete fedora:skills/ ~/skills/
 
 # 2. Ejecutar deploy (detecta hostname automáticamente)
 cd ~/skills && bash deploy.sh
@@ -61,8 +61,8 @@ cd ~/skills && git pull && bash deploy.sh
 
 | Skill | Categoría | Mantenedor |
 |-------|-----------|------------|
-| shared/* | Ambos | Arquitecto (cachy-gla) |
-| cachy-gla/* | cachy-gla | Arquitecto |
+| shared/* | Ambos | Arquitecto (fedora) |
+| fedora/* | fedora | Arquitecto |
 | raspi/* | Raspi | Qwen (Raspi) |
 
 ## Restore (ante fallo de implementación)
@@ -88,5 +88,5 @@ Verificar `uname -n` antes de ejecutar scripts específicos de plataforma.
 
 | Nodo | Skills en Agent Card |
 |------|---------------------|
-| cachy-gla | 12 (shared + cachy-gla) |
+| fedora | 12 (shared + fedora) |
 | Raspi | 16 (shared + raspi + built-ins) |
