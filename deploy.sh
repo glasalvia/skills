@@ -17,7 +17,7 @@ fi
 
 # Determinar qué skills aplicar según hostname
 case "$HOSTNAME" in
-    cachy-gla|cachy*)
+    cachy-gla|cachy*|fedora*)
         CATEGORIES="shared cachy-gla"
         echo "📦 Desplegando para: cachy-gla"
         ;;
