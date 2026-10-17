@@ -9,25 +9,32 @@ description: "Conexión SSH a Raspberry Pi y transferencia de conocimiento/skill
 Permite conectarse por SSH a la Raspberry Pi (192.168.1.65) para ejecutar comandos, transferir archivos, compartir skills con el otro agente OpenClaw que corre allí, y administrar el nodo remoto (actualización, servicios, diagnóstico de conexión).
 
 ## Prerrequisitos
-- `sshpass` instalado en el sistema (`which sshpass` — disponible en cachy-gla)
+- `sshpass` instalado en el sistema (`which sshpass` — presente en fedora)
 - Credenciales del Raspi (ver sección Credenciales)
 
 ## Credenciales
 - **Host:** `192.168.1.65`
 - **Usuario:** `glasalvia`
-- **Password keyring:** `***` (no rotar)
+- **Password:** secreto `SSH_PASS` del store protegido, inyectado como variable de entorno en los comandos ejecutados en el host del gateway.
+
+```bash
+# Uso correcto: la variable se expande en el shell del gateway; nunca imprimir su valor.
+sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 'echo OK'
+```
+
+**Verificación:** `[ -n "$SSH_PASS" ] && echo presente` (nunca `echo "$SSH_PASS"`).
 
 ## Comandos de Ejecución Remota
 
 ### Ejecutar comando simple:
 ```bash
-sshpass -p "***" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 '<comando>'
+sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 '<comando>'
 ```
 
 ### Transferir archivo al Raspberry (desde este gateway):
 ```bash
 # SCP directo con sshpass
-sshpass -p "***" scp -o StrictHostKeyChecking=no <archivo_local> glasalvia@192.168.1.65:<ruta_destino>
+sshpass -p "$SSH_PASS" scp -o StrictHostKeyChecking=no <archivo_local> glasalvia@192.168.1.65:<ruta_destino>
 ```
 
 La contraseña se pasa inline vía `sshpass -p`. No requiere archivos temporales ni wrappers Python.
@@ -38,10 +45,10 @@ La contraseña se pasa inline vía `sshpass -p`. No requiere archivos temporales
 tar czf /tmp/skill.tar.gz -C <path_skill> .
 
 # 2. SCP al raspberry
-sshpass -p "***" scp -o StrictHostKeyChecking=no /tmp/skill.tar.gz glasalvia@192.168.1.65:/home/glasalvia/.openclaw/workspace/skills/
+sshpass -p "$SSH_PASS" scp -o StrictHostKeyChecking=no /tmp/skill.tar.gz glasalvia@192.168.1.65:/home/glasalvia/.openclaw/workspace/skills/
 
 # 3. Desempaquetar en el raspberry
-sshpass -p "***" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 'cd ~/.openclaw/workspace/skills && tar xzf skill.tar.gz && rm skill.tar.gz'
+sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 'cd ~/.openclaw/workspace/skills && tar xzf skill.tar.gz && rm skill.tar.gz'
 
 # 4. Limpiar local
 rm /tmp/skill.tar.gz
@@ -59,22 +66,22 @@ rm /tmp/skill.tar.gz
 
 ### Opción B: Archivo individual (config, script, dato)
 ```bash
-sshpass -p "***" scp -o StrictHostKeyChecking=no <archivo> glasalvia@192.168.1.65:<ruta_destino>
+sshpass -p "$SSH_PASS" scp -o StrictHostKeyChecking=no <archivo> glasalvia@192.168.1.65:<ruta_destino>
 ```
 
 ### Opción C: Ejecutar comando remoto
 ```bash
-sshpass -p "***" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 '<comando>'
+sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 '<comando>'
 ```
 
 ## Verificación Post-Transferencia
 Después de transferir, verificar que el archivo llegó:
 ```bash
-sshpass -p "***" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 'ls -la ~/.openclaw/workspace/skills/<nombre-skill>/'
+sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 'ls -la ~/.openclaw/workspace/skills/<nombre-skill>/'
 ```
 
 ## Notas de Seguridad
-- La contraseña `***` es del keyring y **no debe rotarse**.
+- La contraseña reside en el secreto `SSH_PASS` y **no debe rotarse ni imprimirse**.
 - `StrictHostKeyChecking=no` evita prompts interactivos de fingerprint.
 - No almacenar credenciales en logs ni en el historial de chat.
 - El método sshpass es directo, no requiere `/tmp/ssh_env` ni pexpect.
@@ -87,10 +94,10 @@ sshpass -p "***" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 'ls -la 
 ## Diagnóstico de conectividad
 ```bash
 # Verificar que el Raspi responde
-sshpass -p "***" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 'echo "OK"; uptime'
+sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 'echo "OK"; uptime'
 
 # Verificar que SCP funciona
-echo "test" | sshpass -p "***" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 'cat > /tmp/ssh_test && echo OK'
+echo "test" | sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 'cat > /tmp/ssh_test && echo OK'
 ```
 
 ## Gestión del Nodo OpenClaw en Raspi
@@ -101,19 +108,19 @@ El comando `openclaw update --yes` puede atascarse en la fase `updater-runtime-r
 
 ```bash
 # 1. Instalar la versión específica vía npm (bypassea la validación lenta)
-sshpass -p "***" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 '\
+sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 '\
   npm install -g --allow-scripts=@google/genai,esbuild,koffi,protobufjs,openclaw openclaw@2026.9.8\
 '
 
 # 2. Verificar que la versión se actualizó
-sshpass -p "***" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 'openclaw --version'
+sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 'openclaw --version'
 
 # 3. Reiniciar el gateway para que corra la nueva versión
-sshpass -p "***" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 'openclaw restart --yes'
+sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 'openclaw restart --yes'
 # Nota: el restart corta la SSH. Esperar 30s y reconectar para verificar.
 
 # 4. Verificar post-reinicio
-sshpass -p "***" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 '\
+sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 '\
   openclaw --version && openclaw status 2>/dev/null | grep -E "Gateway self|Gateway service|Node service"\
 '
 ```
@@ -122,13 +129,13 @@ sshpass -p "***" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 '\
 
 ```bash
 # Reiniciar solo el node service (no corta la SSH)
-sshpass -p "***" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 'systemctl --user restart openclaw-node'
+sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 'systemctl --user restart openclaw-node'
 
 # Verificar estado
-sshpass -p "***" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 'systemctl --user is-active openclaw-node'
+sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 'systemctl --user is-active openclaw-node'
 
 # Verificar PIDs después de reinicio
-sshpass -p "***" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 '\
+sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 '\
   systemctl --user show openclaw-gateway -p MainPID && systemctl --user show openclaw-node -p MainPID\
 '
 ```
@@ -137,15 +144,15 @@ sshpass -p "***" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 '\
 
 Cuando el nodo Raspi aparece como "sin conexión" o "desajuste de versiones" en el dashboard del Control UI, las causas raíz más probables son:
 
-1. **IP destino incorrecta en el systemd unit:** `~/.config/systemd/user/openclaw-node.service` contiene la línea `ExecStart=... node run --host <IP_GATEWAY>`. Verificar que `<IP_GATEWAY>` coincida con la IP actual del gateway padre (cachy-gla: `192.168.1.72`).
+1. **IP destino incorrecta en el systemd unit:** `~/.config/systemd/user/openclaw-node.service` contiene la línea `ExecStart=... node run --host <IP_GATEWAY>`. Verificar que `<IP_GATEWAY>` coincida con la IP actual del gateway padre (fedora: `192.168.1.75`).
 
-2. **Registro stale en el gateway padre:** El archivo `~/.openclaw/nodes/paired.json.migrated` en cachy-gla conserva la versión y `lastConnectedAtMs` de la última conexión. No se actualiza hasta que el node service reconecte exitosamente.
+2. **Registro stale en el gateway padre:** El archivo `~/.openclaw/nodes/paired.json.migrated` en fedora conserva la versión y `lastConnectedAtMs` de la última conexión. No se actualiza hasta que el node service reconecte exitosamente.
 
 3. **Node service no reiniciado post-update:** Los procesos del node service usan el binario de la versión anterior hasta que se reinician explícitamente con `systemctl --user restart openclaw-node`.
 
 ```bash
-# Diagnóstico completo del node service desde cachy-gla
-sshpass -p "***" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 '\
+# Diagnóstico completo del node service desde fedora
+sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 '\
   echo "=== Service unit ==="
   cat /home/glasalvia/.config/systemd/user/openclaw-node.service
   echo ""
@@ -163,8 +170,8 @@ sshpass -p "***" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 '\
 ### Remediar IP incorrecta en el systemd unit
 
 ```bash
-sshpass -p "***" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 '\
-  sed -i "s/--host [0-9.]*/--host 192.168.1.72/" /home/glasalvia/.config/systemd/user/openclaw-node.service
+sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no glasalvia@192.168.1.65 '\
+  sed -i "s/--host [0-9.]*/--host 192.168.1.75/" /home/glasalvia/.config/systemd/user/openclaw-node.service
   systemctl --user daemon-reload
   systemctl --user restart openclaw-node
   echo "IP corregida, servicio reiniciado"\

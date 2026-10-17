@@ -6,14 +6,14 @@ description: "Comunicación bidireccional con Raspberry Pi vía A2A: control HA,
 # Skill: raspi-a2a-bridge — Integración A2A con Agente Remoto (Patrón General)
 
 ## Propósito
-Establecer comunicación bidireccional entre este agente (cachy-gla) y un agente remoto (Raspi, en Raspberry Pi 5) mediante el protocolo A2A Gateway Plugin, permitiendo ejecutar tareas, consultar estado y controlar dispositivos en el entorno del agente remoto.
+Establecer comunicación bidireccional entre este agente (fedora) y un agente remoto (Raspi, en Raspberry Pi 5) mediante el protocolo A2A Gateway Plugin, permitiendo ejecutar tareas, consultar estado y controlar dispositivos en el entorno del agente remoto.
 
 Este skill describe el **patrón de integración**, no una configuración específica. Las variables concretas (IPs, puertos, tokens) se resuelven desde la configuración de A2A Gateway.
 
 ## Arquitectura
 
 ```
-cachy-gla ──A2A (HTTP/JSON-RPC)──► Raspi (RPi 5)
+fedora    ──A2A (HTTP/JSON-RPC)──► Raspi (RPi 5)
     │                                    │
     │  ┌─ Vectores de comando ──┐        │
     │  │  exec → comando shell  │        ├── Home Assistant API
@@ -39,13 +39,13 @@ El archivo `~/.openclaw/a2a-peers.json` del **ORIGEN** debe contener el **token 
 
 **Explicación:** Cuando el gateway A del origen envía un mensaje al peer B, el mensaje incluye un token bearer. El gateway B valida ese token entrante contra su `security.inboundAuth.token`. Por lo tanto:
 
-- `a2a-peers.json` en cachy-gla → peer `raspberry-pi` → debe usar el token de Raspi
-- `a2a-peers.json` en Raspi → peer `cachy-gla` → debe usar el token de cachy-gla
+- `a2a-peers.json` en fedora → peer `raspberry-pi` → debe usar el token de Raspi
+- `a2a-peers.json` en Raspi → peer `fedora` → debe usar el token de fedora
 
 **Verificación empírica:** Si el origen envía su propio token, el destino responde con `-32603: Unauthorized: invalid or missing bearer token`.
 
 ```json
-// a2a-peers.json en CACHY-GLA (origen)
+// a2a-peers.json en FEDORA (origen)
 {
     "raspberry-pi": {
         "url": "http://192.168.1.65:18800",
@@ -69,7 +69,7 @@ ss -tlnp | grep 18800
 
 **⚠️ Caveat:** `openclaw doctor --fix` elimina entradas de plugins no registradas en el índice SQLite. Después de ejecutar `doctor --fix`, reinstalar el plugin A2A con el comando arriba.
 
-El plugin es TypeScript (`index.ts`) sin compilado JS. `openclaw plugins install` lo acepta comocript (`index.ts`) sin compilado JS. `openclaw plugins install` lo acepta como "source checkout" (fallback TypeScript para paths de desarrollo local). No es necesario compilarlo."}, {"oldText": "### Envío de mensaje A2A (comando genérico)\n```bash\nnode <RUTA_PLUGIN>/skill/scripts/a2a-send.mjs \\\n  --peer <ALIAS_PEER> \\\n  --message \"<INSTRUCCIÓN>\" \\\n  --agent-id main \\\n  --wait --timeout-ms <TIMEOUT_MS>\n```\n\n- `<RUTA_PLUGIN>`: `/home/glasalvia/.openclaw/workspace/plugins/a2a-gateway`\n- `<ALIAS_PEER>`: alias definido en `~/.openclaw/a2a-peers.json`\n- `--wait`: espera respuesta del agente remoto (bloqueante)\n- `--timeout-ms`: 30000 para consultas simples, 120000 para tareas pesadas (scripts, Docker)", "newText": "### Envío de mensaje A2A (comando genérico)\n```bash\nnode <RUTA_PLUGIN>/skill/scripts/a2a-send.mjs \\\n  --peer <ALIAS_PEER> \\\n  --message \"<INSTRUCCIÓN>\" \\\n  --wait --timeout-ms <TIMEOUT_MS>\n```\n\n- `<RUTA_PLUGIN>`: `/home/glasalvia/.openclaw/workspace/plugins/a2a-gateway`\n- `<ALIAS_PEER>`: alias definido en `~/.openclaw/a2a-peers.json`. Resuelve URL + token automáticamente.\n- `--wait`: espera respuesta del agente remoto (bloqueante)\n- `--timeout-ms`: 30000 para consultas simples, 120000 para tareas pesadas (scripts, Docker)\n\n**Nota sobre `--agent-id`:** El script acepta `--agent-id main` pero el agente que recibe el mensaje lo determina `routing.defaultAgentId` en la configuración del plugin del nodo destino, no este flag. El flag solo es útil para enviar a agentes alternativos en el peer si el soporte multi-agente está configurado explícitamente. Por defecto, no incluirlo produce el mismo comportamiento."}, {"oldText": "Los vectores de operación usan `--agent-id main`. Este flag puede omitirse si `routing.defaultAgentId` en el plugin destino ya apunta a `main`.", "newText": ""}, {"oldText": "## Mantenimiento de la Conexión\n\n- Si un envío A2A falla, verificar:\n  1. Que ambos gateways estén corriendo (`openclaw gateway status`)\n  2. Que los puertos A2A (18800) estén abiertos (firewall UFW/nftables)\n  3. Que los tokens no hayan rotado\n  4. Que los peers estén configurados correctamente\n- Para verificar conectividad:\n```bash\nnode a2a-send.mjs --peer <ALIAS> --message \"ping\" --agent-id main --wait --timeout-ms 10000\n```\n- Los logs de auditoría A2A están en `~/.openclaw/a2a-audit.jsonl` en el gateway remoto\n- Las tareas completadas se almacenan en `~/.openclaw/a2a-tasks/<TASK_ID>.json`", "newText": "## Mantenimiento de la Conexión\n\n### Protocolo de Diagnóstico (ordenado por probabilidad)\n\nSi un envío A2A falla, seguir esta secuencia:\n\n1. **Verificar que el plugin A2A está escuchando en el peer:**\n   ```bash\n   curl -s -o /dev/null -w \"%{http_code}\" http://<PEER_IP>:18800/.well-known/agent-card.json\n   # 200 = OK, 000/refused = plugin caído\n   ```\n\n2. **Verificar que el plugin está instalado en el peer:**\n   ```bash\n   # En el peer remoto:\n   openclaw plugins list --enabled | grep a2a-gateway\n   ss -tlnp | grep 18800\n   ```\n   Si el plugin no aparece, reinstalar:\n   ```bash\n   openclaw plugins install -l /home/glasalvia/.openclaw/workspace/plugins/a2a-gateway\n   systemctl --user restart openclaw-gateway\n   ```\n\n3. **Verificar que ambos gateways estén corriendo:** `openclaw gateway status`\n\n4. **Verificar tokens:** Revisar que `a2a-peers.json` en el origen tenga el token del destino, no el propio.\n\n5. **Revisar logs de auditoría:** En el peer remoto:\n   ```bash\n   cat /home/glasalvia/.openclaw/a2a-audit.jsonl | grep -i \"rejected\\|error\\|unauthorized\"\n   ```\n\n6. **Revisar logs del gateway del peer:**\n   ```bash\n   grep -i \"a2a\\|unauthorized\\|token\" /tmp/openclaw/openclaw-$(date +%Y-%m-%d).log\n   ```\n\n7. **Si todo lo anterior falla, probar conectividad básica:**\n   ```bash\n   node a2a-send.mjs --peer <ALIAS> --message \"Ejecutá hostname\" --wait --timeout-ms 30000\n   ```\n\n### Archivos de diagnósticos\n- **Logs de auditoría A2A (remoto):** `~/.openclaw/a2a-audit.jsonl`\n- **Tareas completadas (remoto):** `~/.openclaw/a2a-tasks/<TASK_ID>.json`\n- **Logs del gateway (remoto):** `/tmp/openclaw/openclaw-$(date +%Y-%m-%d).log`\n- **Config del plugin (remoto):** `openclaw.json → plugins.entries.a2a-gateway`"}]
+El plugin es TypeScript (`index.ts`) sin compilado JS. `openclaw plugins install` lo acepta como "source checkout" (fallback TypeScript para paths de desarrollo local). No es necesario compilarlo.
 
 ## Protocolo de Comunicación
 
@@ -136,13 +136,13 @@ node a2a-send.mjs --peer <ALIAS> \
 ### Skills canónicos disponibles en el ecosistema unificado
 | Skill canónico | Propósito | Agentes |
 |---|---|---|
-| `audio-tts` | TTS a Google Home y Alexa | cachy-gla + Raspi |
-| `cam-entity` | Captura de snapshots de cámaras | cachy-gla + Raspi |
-| `gog-workspace` | Google Workspace (Gmail, Calendar, Drive, Sheets) | cachy-gla + Raspi |
+| `audio-tts` | TTS a Google Home y Alexa | fedora + Raspi |
+| `cam-entity` | Captura de snapshots de cámaras | fedora + Raspi |
+| `gog-workspace` | Google Workspace (Gmail, Calendar, Drive, Sheets) | fedora + Raspi |
 | `home-assistant` | Control de IoT vía HA API | Raspi |
 | `whatsapp` | Mensajería WhatsApp | Raspi |
-| `raspi-a2a-bridge` | Integración A2A entre agentes | cachy-gla |
-| `raspberry-bridge` | Fallback SSH a RPi (contingencia) | cachy-gla |
+| `raspi-a2a-bridge` | Integración A2A entre agentes | fedora |
+| `raspberry-bridge` | Fallback SSH a RPi (contingencia) | fedora |
 
 ### Hardware
 - Raspberry Pi 5, CPU ARM Cortex-A76 4 núcleos, 8 GB RAM
