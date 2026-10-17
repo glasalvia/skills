@@ -25,6 +25,21 @@ fedora    ──A2A (HTTP/JSON-RPC)──► Raspi (RPi 5)
     │                                    └── Cámara, sensores
 ```
 
+## Environment: fedora ↔ Raspi (estado verificado 2026-10-17)
+
+| Elemento | fedora (192.168.1.75) | Raspi (192.168.1.65) |
+|---|---|---|
+| Plugin | `~/.openclaw/workspace/plugins/a2a-gateway` (v1.5.1, ESM/TS) | mismo path, v1.5.1 |
+| Puerto A2A | 18800 (`0.0.0.0`) | 18800 (`0.0.0.0`) |
+| Alias del peer | `raspberry-pi` → `http://192.168.1.65:18800` | `fedora` → `http://192.168.1.75:18800` |
+| `routing.defaultAgentId` | `el-arquitecto` | `main` |
+| Token de entrada | en `openclaw.json → plugins.entries.a2a-gateway.config.security.token` | ídem |
+| Store de peers | `~/.openclaw/a2a-peers.json` | ídem |
+
+**Asimetría crítica:** el `defaultAgentId` **no** se copia entre nodos. Copiar `main` a fedora hace fallar todo task entrante con `invalid agent params: unknown agent id "main"`. El id válido en fedora es `el-arquitecto`.
+
+Los tokens ya existen y están alineados: el token de entrada de un nodo es el token que el otro usa en su peers file. Nunca se imprimen; se verifican con `sed` redactado o por longitud.
+
 ## Prerrequisitos (Patrón)
 
 - **A2A Gateway Plugin** instalado en **ambos** gateways (local y remoto)
@@ -76,17 +91,17 @@ El plugin es TypeScript (`index.ts`) sin compilado JS. `openclaw plugins install
 ### Envío de mensaje A2A (comando genérico)
 ```bash
 node <RUTA_PLUGIN>/skill/scripts/a2a-send.mjs \
-  --peer <ALIAS_PEER> \
+  --peer raspberry-pi \
   --message "<INSTRUCCIÓN>" \
   --wait --timeout-ms <TIMEOUT_MS>
 ```
 
 - `<RUTA_PLUGIN>`: `/home/glasalvia/.openclaw/workspace/plugins/a2a-gateway`
-- `<ALIAS_PEER>`: alias definido en `~/.openclaw/a2a-peers.json`. Resuelve URL + token automáticamente.
+- `<ALIAS_PEER>`: alias definido en `~/.openclaw/a2a-peers.json`. En fedora el alias de la Raspi es `raspberry-pi`; en la Raspi el de fedora es `fedora`. Resuelve URL + token automáticamente.
 - `--wait`: espera respuesta del agente remoto (bloqueante)
 - `--timeout-ms`: 30000 para consultas simples, 120000 para tareas pesadas (scripts, Docker)
 
-**Nota sobre `--agent-id`:** El script acepta `--agent-id <ID>` pero el agente que recibe el mensaje lo determina `routing.defaultAgentId` en la configuración del plugin del nodo destino, no este flag. El flag solo es útil para enviar a agentes alternativos si el soporte multi-agente está configurado explícitamente. Por defecto, omitirlo produce el mismo comportamiento.
+**Nota sobre `--agent-id`:** El script acepta `--agent-id <ID>` pero el agente que recibe el mensaje lo determina `routing.defaultAgentId` en la configuración del plugin del nodo destino, no este flag. El flag solo es útil para enviar a agentes alternativos si el soporte multi-agente está configurado explícitamente. Por defecto, omitirlo produce el mismo comportamiento. Verificado: en fedora el valor correcto es `el-arquitecto`; `main` solo existe en la Raspi.
 
 ### Lo que el agente remoto puede ejecutar
 El agente remoto, al recibir una instrucción A2A, opera en un `agentTurn` aislado con las siguientes herramientas disponibles:
@@ -104,7 +119,7 @@ El agente remoto, al recibir una instrucción A2A, opera en un `agentTurn` aisla
 ```bash
 node a2a-send.mjs --peer <ALIAS> \
   --message "Ejecutá: free -h; df -h /; uptime; echo '---'; docker ps --format '{{.Names}} {{.Status}}' | head -10" \
-  --agent-id main --wait --timeout-ms 30000
+  --wait --timeout-ms 30000
 ```
 El agente remoto ejecuta los comandos vía `exec` y devuelve stdout como texto.
 
@@ -112,14 +127,14 @@ El agente remoto ejecuta los comandos vía `exec` y devuelve stdout como texto.
 ```bash
 node a2a-send.mjs --peer <ALIAS> \
   --message "Ejecutá: python3 <RUTA_SCRIPT>" \
-  --agent-id main --wait --timeout-ms 120000
+  --wait --timeout-ms 120000
 ```
 
 ### Vector Comunicación — Enviar mensaje a canal externo
 ```bash
 node a2a-send.mjs --peer <ALIAS> \
   --message "Ejecutá: openclaw message send --channel <CANAL> --target '<DESTINO>' -m '<TEXTO>'" \
-  --agent-id main --wait --timeout-ms 60000
+  --wait --timeout-ms 60000
 ```
 **Importante:** No usar `sessions_send` para delivery a canales externos. Usar `exec` + `openclaw message send`.
 
@@ -127,7 +142,7 @@ node a2a-send.mjs --peer <ALIAS> \
 ```bash
 node a2a-send.mjs --peer <ALIAS> \
   --message "Ejecutá: curl -s <URL_API> (con auth si corresponde)" \
-  --agent-id main --wait --timeout-ms 30000
+  --wait --timeout-ms 30000
 ```
 
 ## Capacidades del Entorno Remoto (Raspi / Raspberry Pi 5)
