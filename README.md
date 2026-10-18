@@ -13,7 +13,6 @@ skills/
 │   ├── gog-workspace/    # Google Workspace CLI
 │   └── noticias-argentina/ # Monitoreo RSS de noticias
 ├── fedora/       # Skills exclusivos de fedora
-│   ├── sdxl-image-generator/   # SDXL con RTX 5070
 │   ├── music-downloader/       # Descarga MP3 vía yt-dlp
 │   ├── linkedin-job-pipeline/  # Scraping LinkedIn
 │   ├── notiscreen-send/        # Turing Smart Screen
