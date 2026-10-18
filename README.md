@@ -7,22 +7,27 @@ Repositorio centralizado de skills para los agentes OpenClaw en fedora y Raspber
 ```
 skills/
 ├── shared/          # Skills presentes en AMBOS equipos
-│   ├── audio-tts/        # TTS a Google Home y Alexa
-│   ├── cam-entity/       # Snapshot de cámara Tapo vía HA
-│   ├── dev-orchestrator/ # Orquestación de tareas de desarrollo
-│   ├── gog-workspace/    # Google Workspace CLI
+│   ├── actualizar-pasos/   # Pasos diarios → Google Sheets
+│   ├── audio-tts/          # TTS a Google Home y Alexa
+│   ├── cam-entity/         # Snapshot de cámara Tapo vía HA
+│   ├── dev-orchestrator/   # Orquestación de tareas de desarrollo
+│   ├── gog-workspace/      # Google Workspace CLI
+│   ├── ml-api/             # Artículos de MercadoLibre vía API
 │   └── noticias-argentina/ # Monitoreo RSS de noticias
 ├── fedora/       # Skills exclusivos de fedora
 │   ├── music-downloader/       # Descarga MP3 vía yt-dlp
-│   ├── linkedin-job-pipeline/  # Scraping LinkedIn
 │   ├── notiscreen-send/        # Turing Smart Screen
+│   ├── qwen-local-service/     # Ciclo de vida del Qwen local + Workboard
 │   ├── raspberry-bridge/       # SSH a Raspi (fallback)
-│   └── raspi-a2a-bridge/       # Comunicación A2A
+│   ├── raspi-a2a-bridge/       # Comunicación A2A
+│   └── spec-kit/               # Spec-Driven Development
 └── raspi/           # Skills exclusivos de Raspberry Pi
-    └── skill-fiesta/     # Skill experimental
+    ├── raspi-a2a-client/   # Cliente A2A del Pi
+    ├── raspi-servarr-core/ # Servicios *arr en el Pi
+    └── skill-fiesta/       # Skill experimental
 
 deploy.sh           # Script de deploy multi-hostname
-.gitignore           # Exclusiones del repo
+.gitignore          # Exclusiones del repo
 ```
 
 ## Deploy
@@ -84,7 +89,9 @@ Verificar `uname -n` antes de ejecutar scripts específicos de plataforma.
 
 ## Matriz de Agent Cards
 
-| Nodo | Skills en Agent Card |
-|------|---------------------|
-| fedora | 12 (shared + fedora) |
-| Raspi | 16 (shared + raspi + built-ins) |
+| Nodo | Skills del repo | Composición |
+|------|-----------------|-------------|
+| fedora | 13 | 7 shared + 6 fedora |
+| Raspi | 10 | 7 shared + 3 raspi |
+
+Los built-ins de OpenClaw se suman a estos números y no se cuentan aquí.
