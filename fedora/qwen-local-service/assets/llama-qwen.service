@@ -1,0 +1,16 @@
+[Unit]
+Description=llama.cpp server — Qwen3.6-35B-A3B (local, OpenAI-compatible)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/glasalvia/opt/llama.cpp
+Environment=LD_LIBRARY_PATH=/home/glasalvia/opt/llama.cpp/cudart-llama-b11711-bin-ubuntu-cuda-13.4-x64:/home/glasalvia/opt/llama.cpp/llama-b11711
+ExecStart=/home/glasalvia/opt/llama.cpp/llama-b11711/llama-server -m /home/glasalvia/models/qwen3.6-35b-a3b/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf --alias qwen3.6-35b-a3b -ngl 999 --n-cpu-moe 28 -fa on --jinja -c 131072 -ctk q8_0 -ctv q8_0 -b 1024 -ub 256 --parallel 1 --host 127.0.0.1 --port 8080
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=300
+
+[Install]
+WantedBy=default.target
