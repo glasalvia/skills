@@ -445,7 +445,7 @@ cmd_verify() {
 
   printf 'tarjeta  %s\nestado   %s\n' "$card" "$status"
 
-  local artifacts; artifacts="$(jq -r '(.card.metadata.artifacts // [])[] | .path' <<<"$card_json")"
+  local artifacts; artifacts="$(jq -r '(.card.metadata.artifacts // [])[] | .path' <<<"$card_json" | awk '!seen[$0]++')"
   if [ -z "$artifacts" ]; then
     fail "sin artefactos declarados: nada que verificar"
     return 1
@@ -478,8 +478,28 @@ cmd_verify() {
       fi
 
       actual="$(bash -c "$cmd" 2>&1 | head -c 500)"
-      if [ "$(printf '%s' "$actual" | sed -e 's/[[:space:]]*$//')" = "$(printf '%s' "$expected" | sed -e 's/[[:space:]]*$//')" ]; then
-        ok "evidence[$i] reproduce: $cmd"
+
+      norm() { printf '%s' "$1" | tr -s '[:space:]' ' ' | sed -e 's/^ //' -e 's/ $//'; }
+
+      # Los comandos que reportan estado vivo (memoria, carga, utilización,
+      # uptime) no pueden compararse por valor: cambian entre la ejecución y
+      # la verificación. Se compara la forma: líneas y campos por línea.
+      if printf '%s' "$cmd" | grep -qE 'nvidia-smi|free -m|uptime|df -h'; then
+        local el_al ea_al
+        el_al="$(printf '%s' "$expected" | wc -l)"
+        ea_al="$(printf '%s' "$actual" | wc -l)"
+        local el_c ea_c
+        el_c="$(printf '%s' "$expected" | awk '{print NF}' | tr '\n' ' ')"
+        ea_c="$(printf '%s' "$actual" | awk '{print NF}' | tr '\n' ' ')"
+        if [ "$el_al" = "$ea_al" ] && [ "$(norm "$el_c")" = "$(norm "$ea_c")" ]; then
+          ok "evidence[$i] forma reproduce (valores volátiles no comparados): $cmd"
+        else
+          fail "evidence[$i] cambió de forma: $cmd"
+          printf '  líneas esperadas/obtenidas: %s/%s\n' "$el_al" "$ea_al"
+          failures=$((failures+1))
+        fi
+      elif [ "$(norm "$actual")" = "$(norm "$expected")" ]; then
+        ok "evidence[$i] reproduce exacto: $cmd"
       else
         fail "evidence[$i] diverge: $cmd"
         printf '  esperado: %s\n  obtenido: %s\n' "$expected" "$actual"
