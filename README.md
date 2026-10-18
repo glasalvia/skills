@@ -10,7 +10,6 @@ skills/
 │   ├── audio-tts/        # TTS a Google Home y Alexa
 │   ├── cam-entity/       # Snapshot de cámara Tapo vía HA
 │   ├── dev-orchestrator/ # Orquestación de tareas de desarrollo
-│   ├── facturas-ocr/     # Pipeline OCR de facturas
 │   ├── gog-workspace/    # Google Workspace CLI
 │   └── noticias-argentina/ # Monitoreo RSS de noticias
 ├── fedora/       # Skills exclusivos de fedora
