@@ -19,10 +19,11 @@ openclaw config set env.vars.GOG_ACCOUNT raspilasalvia@gmail.com
 # Requiere restart del gateway
 ```
 
-**Archivos relevantes:**
-- Binario: `/usr/bin/gog` v0.32.0
-- Client secret: `~/.config/gog/client_secret.json`
-- Keyring (encriptado AES-256-GCM): `~/.local/share/gogcli/keyring/`
+**Archivos relevantes (Fedora, configuración replicada desde la Raspi):**
+- Binario: `~/.local/bin/gog` v0.32.0 (release oficial `openclaw/gogcli`, linux_amd64)
+- Client secret: `~/.config/gogcli/client_secret.json`
+- Credenciales: `~/.config/gogcli/credentials.json`
+- Keyring (encriptado AES-256-GCM): `~/.config/gogcli/keyring/`
 - Config backend: `~/.config/gogcli/config.json` (contiene `keyring_backend: file`)
 
 **Password del keyring:** `Capicua1221`. No rotar. Si cambia, los tokens se vuelven ilegibles.
@@ -130,6 +131,6 @@ export GOG_ACCESS_TOKEN="***"
 4. **Las variables de entorno deben estar en `openclaw.json`**, no en el shell del usuario, porque el proceso del agente no hereda el entorno de zsh.
 
 ## Environment
-- **cachy-gla:** Gog CLI instalado (`/usr/bin/gog` v0.32.0). Keyring con password `Capicua1221`. Variables de entorno en `openclaw.json`.
-- **Raspi:** No disponible (sin gog CLI ni keyring configurados).
-- **Hostname check:** Si `uname -n` contiene "raspi", informar que el skill no está disponible.
+- **fedora (este gateway):** Gog CLI instalado en `~/.local/bin/gog` v0.32.0. Keyring copiado desde la Raspi (misma password `Capicua1221`). Variables en `env.vars` de `~/.openclaw/openclaw.json`. Verificado: Gmail, Calendar, Drive y Contacts operativos.
+- **Raspi (192.168.1.65):** Gog CLI v0.32.0 vía Homebrew (`/usr/local/bin/gog` → `/home/linuxbrew/.linuxbrew/bin/gog`). Keyring en `~/.config/gogcli/keyring/`. Cuenta `raspilasalvia@gmail.com` con scopes `gmail,calendar,drive,contacts`.
+- **Replicación entre nodos:** copiar `config.json`, `client_secret.json`, `credentials.json` y el directorio `keyring/` completos; la password debe ser idéntica o el keyring resulta ilegible (`aes.KeyUnwrap`). No copiar `.lock`.
